@@ -216,7 +216,7 @@ par(mfrow = c(2,2))
 densplot(as.mcmc(mcmc.output1$samples$chain1,mcmc.output1$samples$chain2))
 densplot(as.mcmc(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2))
 ```
-The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \ref(fig: b2fig). The plots for both α and β display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
+The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \ref(fig:b2fig). The plots for both $\alpha$ and $\beta$ display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
 
 ```{r b2, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
 # Normal distribution
@@ -226,7 +226,7 @@ HPD1 <- as.data.frame(round(HPDinterval(as.mcmc(samples_n)),3)) %>%
   mutate(interval = paste0("[", lower, ", ", upper, "]"))
 
 # t distribution
-mcmc.output2$summary 
+#mcmc.output2$summary 
 samples_t <- rbind(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2)
 HPD2 <- as.data.frame(round(HPDinterval(as.mcmc(samples_t)),3)) %>%
   mutate(interval = paste0("[", lower, ", ", upper, "]"))
@@ -276,20 +276,24 @@ beta_t <- round(mean(df_output2$beta), 3)
 # Create a dataframe for plotting
 df_plotting <- data.frame(cbind(dose,N,y)) %>%
   # Observed data
-  mutate(prob_observed=y/N) %>%
+  mutate(prob_observed = y/N) %>%
   # Posterior with normal distribution
-  mutate(prob_n=expit(alpha_n+beta_n*dose)) %>%
+  mutate(prob_n = expit(alpha_n + beta_n * dose)) %>%
   # Posterior with t distribution
   mutate(prob_t = expit(alpha_t + beta_t * dose))
   
 colors <- c("Observed" = "black", "Posterior(normal distribution)" = "blue", "Posterior(t distribution)" = "red")
-ggplot(df_plotting, aes(x=dose)) +
-  geom_line(aes(y = prob_observed, color = "Observed"), linewidth=1.2) +
-  geom_line(aes(y = prob_n, color="Posterior(normal distribution)"), linewidth=1) +
-  geom_line(aes(y = prob_t, color="Posterior(t distribution)"), linewidth=1, linetype="twodash") +
-  labs(x="Number of Dose", y="Probability", color = "Legend") +
+ggplot(df_plotting, aes(x = dose)) +
+  geom_line(aes(y = prob_observed, color = "Observed"), linewidth = 1.2) +
+  geom_line(aes(y = prob_n, color = "Posterior(normal distribution)"),
+            linewidth = 1) +
+  geom_line(aes(y = prob_t, color = "Posterior(t distribution)"),
+            linewidth = 1, linetype = "twodash") +
+  labs(x = "Number of Dose", y = "Probability", color = "Legend") +
   scale_color_manual(values = colors) +
-  ggtitle("Observed probabilities vs Posterior dose-response relationship")
+  ggtitle("Observed probabilities vs Posterior dose-response relationship") +
+  theme_bw() +
+  theme(legend.position = c(0.8, 0.2))
 ```
 
 Figure \@ref(fig:b3) indicates that the trends in the posteriors exhibit a dose-response relationship that is similar to the observed probabilities, with the exception of the dose range of 50-70. Moreover, the posterior with t-distributed priors closely aligns with the posterior with normal distributed priors. In general, all three lines demonstrate an increasing probability of malformations as the dose increases, with this increase leveling off as the dose approaches approximately 400.
@@ -303,7 +307,40 @@ $$BMD = \frac{logit(q^*) − \alpha}{\beta}$$
 with $q^* = q(1 − P(0)) + P(0)$. Determine the posterior estimate of the safe level of exposure for DYME corresponding with an excess risk of $q$ = 0.05.
 ::::
 
+```{r b4, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
+#--------------------------------Question B4-----------------------------------#
+# Excess risk q=0.05
+# prior Normal distribution
+df_output1_bmd <- df_output1 %>%
+  # Caculate BMD
+  mutate(P0 = exp(alpha) / (1 + exp(alpha))) %>%
+  mutate(q.star = (0.05 * (1 - P0)) + P0) %>%
+  mutate(bmd = (logit(q.star) - alpha) / beta)
 
+# HPD Interval
+hpd_n <- as.data.frame(round(HPDinterval(as.mcmc(df_output1_bmd)), 3)) %>%
+  mutate(interval = paste0("[", lower, ", ", upper, "]"))
+
+# prior t distribution
+df_output2_bmd <- df_output2 %>%
+  # Caculate BMD
+  mutate(P0 = exp(alpha) / (1 + exp(alpha))) %>%
+  mutate(q.star = (0.05 * (1 - P0)) + P0) %>%
+  mutate(bmd = (logit(q.star) - alpha) / beta)
+# HPD Interval
+hpd_t <- as.data.frame(round(HPDinterval(as.mcmc(df_output2_bmd)), 3)) %>%
+  mutate(interval = paste0("[", lower, ", ", upper, "]"))
+
+t <- data.frame(Prior = c("Normal distribution", "t-distribution"),
+           mean = c(round(mean(df_output1_bmd$bmd), 3),
+                    round(mean(df_output2_bmd$bmd), 3)),
+           hpd = c(hpd_n[5, "interval"], hpd_t[5, "interval"])) %>%
+  kable(booktabs = TRUE,
+        col.names = c("BMD (Mean)", "HPD interval", "Prior"),
+        caption = "Posterior measures of BMD.") %>%
+  kableExtra::kable_styling()
+```
+The posterior mean values for BMD and the corresponding HPD interval are shown in Table \@ref(tab:b4). The lower bounds of the HPD interval for the prior normal distribution (`r hpd_n[5, "upper"]` for Normal distribution and `r hpd_t[5, "upper"]` for t-distribution) should be considered as the Benchmark does.
 
 :::: {.greybox data-latex=""}
 (5) As an alternative, a safe level of exposure can be obtained from a threshold model, defined as
