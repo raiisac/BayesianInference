@@ -37,6 +37,8 @@ Here, we write question 1
 
 
 \clearpage
+\appendix
+
 # Appendix
 
 ## All code for the report
