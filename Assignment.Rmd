@@ -17,12 +17,13 @@ output:
 library(tidyverse)
 library(rprojroot)
 library(kableExtra)
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(
   root.dir = find_root(criterion = has_file("BayesianInference.Rproj")))
 ```
 
 # Task A
+
 
 :::: {.greybox data-latex=""}
 ::: {.center data-latex=""}
