@@ -210,10 +210,89 @@ We analyzed the convergence of the model with a prior t-distribution using trace
 ::::
 
 
+```{r b2fig, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Density plots of α and β with normal distribution (top) and t distribution (bottom).", fig.width=6, fig.height=4}
+#--------------------------------Question B2-----------------------------------#
+par(mfrow = c(2,2))
+densplot(as.mcmc(mcmc.output1$samples$chain1,mcmc.output1$samples$chain2))
+densplot(as.mcmc(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2))
+```
+The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \ref(fig: b2fig). The plots for both α and β display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
+
+```{r b2, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
+# Normal distribution
+#mcmc.output1$summary 
+samples_n <- rbind(mcmc.output1$samples$chain1,mcmc.output1$samples$chain2)
+HPD1 <- as.data.frame(round(HPDinterval(as.mcmc(samples_n)),3)) %>%
+  mutate(interval = paste0("[", lower, ", ", upper, "]"))
+
+# t distribution
+mcmc.output2$summary 
+samples_t <- rbind(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2)
+HPD2 <- as.data.frame(round(HPDinterval(as.mcmc(samples_t)),3)) %>%
+  mutate(interval = paste0("[", lower, ", ", upper, "]"))
+
+as.data.frame(rbind(mcmc.output1$summary$all.chains[, -c(4, 5)],
+                    mcmc.output2$summary$all.chains[, -c(4, 5)])) %>%
+  mutate(HPD = c(HPD1$interval, HPD2$interval)) %>%
+  kable(booktabs = TRUE,
+        caption = "Bayesian posterior measures of α and β",
+        col.names = c("Mean", "Median", "St.Dev", "HPD Interval")) %>%
+  kableExtra::group_rows(group_label = "N(0, 10000)",
+                         start_row = 1, end_row = 2) %>%
+  kableExtra::group_rows(group_label = "t(0, 0.0001, 5)",
+                         start_row = 3, end_row = 4)
+```
+
+Based on the Bayesian posterior measures of α and β (Table \@ref(tab:b2)), it can be concluded that the probability of malformations is ?????0.143????? in the absence of any administered dose. As the dose increases, the probability of malformations also increases, indicating a positive dose-response relationship. Additionally, the 95% highest posterior density (HPD) interval, which captures the 95% most plausible parameter values, does not include the value of 0, providing evidence for the existence of a dose effect.
 
 :::: {.greybox data-latex=""}
 (3) Plot the posterior dose-response relationship together with the observed probabilities of a malformation per dose.
 ::::
+
+```{r b3, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Posterior dose-response relationship and observed probabilities.", fig.width=6, fig.height=4}
+#--------------------------------Question B3-----------------------------------#
+# posterior with normal distribution
+chains_output1 <- data.frame(mcmc.output1[[1]])
+chain1_output1 <- chains_output1[, 1:2] %>%
+  rename("alpha" = "chain1.alpha", "beta" = "chain1.beta")
+chain2_output1 <- chains_output1[, 3:4] %>%
+  rename("alpha" = "chain2.alpha", "beta" = "chain2.beta")
+df_output1 <- rbind(chain1_output1, chain2_output1)
+# get the mean value of alpha and beta
+alpha_n <- round(mean(df_output1$alpha), 3)
+beta_n <- round(mean(df_output1$beta), 3)
+
+# posterior with t distribution
+chains_output2 <- data.frame(mcmc.output2[[1]])
+chain1_output2 <- chains_output2[, 1:2] %>%
+  rename("alpha" = "chain1.alpha", "beta" = "chain1.beta")
+chain2_output2 <- chains_output2[,3:4] %>%
+  rename("alpha" = "chain2.alpha", "beta" = "chain2.beta")
+df_output2 <- rbind(chain1_output2, chain2_output2)
+# get the mean value of alpha and beta
+alpha_t <- round(mean(df_output2$alpha), 3)
+beta_t <- round(mean(df_output2$beta), 3)
+
+# Create a dataframe for plotting
+df_plotting <- data.frame(cbind(dose,N,y)) %>%
+  # Observed data
+  mutate(prob_observed=y/N) %>%
+  # Posterior with normal distribution
+  mutate(prob_n=expit(alpha_n+beta_n*dose)) %>%
+  # Posterior with t distribution
+  mutate(prob_t = expit(alpha_t + beta_t * dose))
+  
+colors <- c("Observed" = "black", "Posterior(normal distribution)" = "blue", "Posterior(t distribution)" = "red")
+ggplot(df_plotting, aes(x=dose)) +
+  geom_line(aes(y = prob_observed, color = "Observed"), linewidth=1.2) +
+  geom_line(aes(y = prob_n, color="Posterior(normal distribution)"), linewidth=1) +
+  geom_line(aes(y = prob_t, color="Posterior(t distribution)"), linewidth=1, linetype="twodash") +
+  labs(x="Number of Dose", y="Probability", color = "Legend") +
+  scale_color_manual(values = colors) +
+  ggtitle("Observed probabilities vs Posterior dose-response relationship")
+```
+
+Figure \@ref(fig:b3) indicates that the trends in the posteriors exhibit a dose-response relationship that is similar to the observed probabilities, with the exception of the dose range of 50-70. Moreover, the posterior with t-distributed priors closely aligns with the posterior with normal distributed priors. In general, all three lines demonstrate an increasing probability of malformations as the dose increases, with this increase leveling off as the dose approaches approximately 400.
 
 
 :::: {.greybox data-latex=""}
