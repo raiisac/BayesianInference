@@ -1,0 +1,57 @@
+---
+documentclass: article
+fontsize: 10pt
+date: "`r Sys.Date()`"
+output: 
+  bookdown::pdf_document2: 
+    fig_caption: yes
+    toc: false
+    latex_engine: xelatex
+    includes:
+      in_header: preamble.sty
+      before_body: titlepage.sty
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE, appendix=TRUE}
+#---------------------------load all packages----------------------------------#
+library(tidyverse)
+library(rprojroot)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(
+  root.dir = find_root(criterion = has_file("BayesianInference.Rproj")))
+```
+
+# Task A
+
+:::: {.greybox data-latex=""}
+::: {.center data-latex=""}
+**Question 1**
+:::
+
+Here, we write question 1
+::::
+
+# Task B
+
+
+\clearpage
+# Appendix
+
+## All code for the report
+
+\small
+
+```{r get-labels, echo = FALSE}
+#all code that needs to be in the appendix needs to have appendix = TRUE
+labs = knitr::all_labels(appendix == TRUE)
+labs = setdiff(labs, c("get-labels"))
+```
+
+```{r all-code, ref.label=labs, eval=FALSE}
+```
+
+\normalsize
+\clearpage
+
+
