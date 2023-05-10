@@ -331,7 +331,7 @@ df_output2_bmd <- df_output2 %>%
 hpd_t <- as.data.frame(round(HPDinterval(as.mcmc(df_output2_bmd)), 3)) %>%
   mutate(interval = paste0("[", lower, ", ", upper, "]"))
 
-t <- data.frame(Prior = c("Normal distribution", "t-distribution"),
+data.frame(Prior = c("Normal distribution", "t-distribution"),
            mean = c(round(mean(df_output1_bmd$bmd), 3),
                     round(mean(df_output2_bmd$bmd), 3)),
            hpd = c(hpd_n[5, "interval"], hpd_t[5, "interval"])) %>%
@@ -340,6 +340,7 @@ t <- data.frame(Prior = c("Normal distribution", "t-distribution"),
         caption = "Posterior measures of BMD.") %>%
   kableExtra::kable_styling()
 ```
+
 The posterior mean values for BMD and the corresponding HPD interval are shown in Table \@ref(tab:b4). The lower bounds of the HPD interval for the prior normal distribution (`r hpd_n[5, "upper"]` for Normal distribution and `r hpd_t[5, "upper"]` for t-distribution) should be considered as the Benchmark does.
 
 :::: {.greybox data-latex=""}
@@ -347,7 +348,6 @@ The posterior mean values for BMD and the corresponding HPD interval are shown i
 $$y ∼ binomial(N, \pi)$$
 $$logit(\pi) = \alpha + \beta(d − \tau)I(d > \tau)$$,
 with $\tau$ the threshold dose below which there is no excess risk. Write code for this model, and summarize the results. How do these results compare with previous results?
-
 ::::
 
 
