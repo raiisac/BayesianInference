@@ -431,17 +431,74 @@ data.frame(waic = waic,
   geom_vline(aes(xintercept = tau_values[which(waic == min(waic))]),
              linetype = "dashed") +
   scale_x_continuous(breaks = tau_values)
+
+chosen_model <- results[[which(waic == min(waic))]]
 ```
 
-For the model with the lowest WAIC, we show
+For the model with the lowest WAIC, we observe from the trace plots of $\alpha$ and $\beta$ (refer to Figure \@ref(fig:trace-gelman-rubin-threshold)) that the estimates from each chain quickly stabilized around a steady state. Additionally, both chains were found to converge around the same conclusion. The Gelman-Rubin diagnostic test showed that the estimated potential scale reduction factors of $\alpha$ and $\beta$ were both 1. These results suggest that our model has converged well. Moreover, the Gelman-Rubin diagnostic plots (Figure \@ref(fig:trace-gelman-rubin-threshold)) support this conclusion, as both the potential scale reduction factors of $\alpha$ and $\beta$ were found to decrease quickly and remain stable as the number of iterations increased. We also examined the autocorrelation plots (refer to Figure \@ref(fig:acplot-threshold)), which indicated low autocorrelation. The autocorrelation decreased and remained around zero as the lag number increased, indicating that the chains have mixed well.
+Overall, these diagnostic tools suggest that our model that the has converged well, and the inference based on the Markov chain Monte Carlo simulation is reliable.
 
+```{r echo=FALSE, include = FALSE, warning = FALSE, message = FALSE, appendix = TRUE}
+# Trace plots
+pdf("images/trace_threshold.pdf") 
+par(mfrow = c(2,2))
+traceplot(as.mcmc(chosen_model$samples$chain1), xlab = "chain1$iteration")
+traceplot(as.mcmc(chosen_model$samples$chain2), xlab = "chain2$iteration")
+dev.off()
+# Gelman-Rubin diagnostic plots
+combinedchains1 = mcmc.list(as.mcmc(chosen_model$samples$chain1),
+                            as.mcmc(chosen_model$samples$chain2))
+gelman.diag(combinedchains1)
+pdf("images/gelman_threshold.pdf") 
+gelman.plot(combinedchains1,xlim = c(0,5000))
+dev.off()
+# Autocorrelation plots
+par(mfrow = c(2, 2))
+pdf("images/ac1_threshold.pdf")
+acf(as.mcmc(chosen_model$samples$chain1), xlab = 'Chain1 Lag')
+dev.off()
+pdf("images/ac2_threshold.pdf")
+acf(as.mcmc(chosen_model$samples$chain2), xlab = 'Chain2 Lag')
+dev.off()
+```
+
+```{r trace-gelman-rubin-threshold, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "Trace and Gelman-Rubin diagnostic plots of α and β for the threshold model with the lowest WAIC.", fig.show = "hold", out.width = "50%", fig.align = "default", appendix = FALSE}
+knitr::include_graphics("images/trace_threshold.pdf")
+knitr::include_graphics("images/gelman_threshold.pdf")
+```
+
+
+```{r acplot-threshold, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Autocorrelation plots of α and β for the threshold model with the lowest WAIC.", fig.show = "hold", out.width = "50%", fig.align = "default"}
+knitr::include_graphics("images/ac1_threshold.pdf")
+knitr::include_graphics("images/ac2_threshold.pdf")
+```
+
+
+```{r density-threshold, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Density plots of α and β for the threshold model with the lowest WAIC.", fig.width=6, fig.height=3}
+par(mfrow = c(1,2))
+densplot(as.mcmc(chosen_model$samples$chain1,chosen_model$samples$chain2))
+```
+
+The density plots are presented in Figure \@ref(fig:density-threshold). The plots for both $\alpha$ and $\beta$ display smooth distributions. Table \@ref(tab:b2-threshold) summarizes the posterior measures of $\alpha$ and $\beta$.
+
+```{r b2-threshold, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
+samples_n <- rbind(chosen_model$samples$chain1,chosen_model$samples$chain2)
+HPD1 <- as.data.frame(round(HPDinterval(as.mcmc(samples_n)),3)) %>%
+  mutate(interval = paste0("[", lower, ", ", upper, "]"))
+
+as.data.frame(chosen_model$summary$all.chains[, -c(4, 5)]) %>%
+  mutate(HPD = HPD1$interval) %>%
+  kable(booktabs = TRUE,
+        caption = "Bayesian posterior measures of α and β",
+        col.names = c("Mean", "Median", "St.Dev", "HPD Interval")) %>%
+  kableExtra::kable_styling()
+```
 
 
 Figure \@ref(fig:threshold-posterior-fit) shows that the fit of the posterior dose-response relationship  with the observed probabilities improved combared to Figure \@ref(fig:b3), especially in the range with lower doses.
 
 ```{r threshold-posterior-fit, echo=FALSE, message=FALSE, warning=FALSE, appendix=TRUE, fig.cap="Posterior dose-response relationship and observed probabilities for the model with the lowest WAIC.", fig.height=3, fig.width=4}
 #plot posterior vs observed probabilities
-chosen_model <- results[[which(waic == min(waic))]]
 chains_output1 <- data.frame(chosen_model[[1]])
 chain1_output1 <- chains_output1[, 1:2] %>%
   rename("alpha" = "chain1.alpha", "beta" = "chain1.beta")
