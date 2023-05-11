@@ -20,6 +20,7 @@ library(kableExtra)
 library('nimble')
 library(coda)
 library(cowplot)
+library(latex2exp)
 
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(
@@ -92,12 +93,12 @@ Here $\beta$ is the parameter of interest. Take vague priors for $\alpha$ and $\
 ::::
 
 To denote the uncertainty of parameters $\alpha$ and $\beta$, we specify two vague priors as a massive variance (extremely small precision) for these two parameters. The first vague prior is:
-$$α~N(0,10000)$$
-$$β~N(0,10000)$$
+$$α \sim N(0,10000)$$
+$$β \sim N(0,10000)$$
 
 And the second vague prior is:
-$$α~t(0,0.0001,5)$$
-$$β~t(0,0.0001,5)$$
+$$α \sim t(0,0.0001,5)$$
+$$β \sim t(0,0.0001,5)$$
 Our parameter settings include running 2 MCMC chains with different starting values for $\alpha$ and $\beta$. The first chain starts with ($\alpha=0$, $\beta=0$), while the second chain starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total of 10000 iterations, with the first 5000 iterations used as a burn-in period.
 
 ```{r echo=FALSE, include = FALSE, warning = FALSE, message = FALSE, appendix = TRUE}
@@ -216,7 +217,8 @@ par(mfrow = c(2,2))
 densplot(as.mcmc(mcmc.output1$samples$chain1,mcmc.output1$samples$chain2))
 densplot(as.mcmc(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2))
 ```
-The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \ref(fig:b2fig). The plots for both $\alpha$ and $\beta$ display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
+
+The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \@ref(fig:b2fig). The plots for both $\alpha$ and $\beta$ display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
 
 ```{r b2, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
 # Normal distribution
@@ -249,7 +251,7 @@ Based on the Bayesian posterior measures of α and β (Table \@ref(tab:b2)), it 
 (3) Plot the posterior dose-response relationship together with the observed probabilities of a malformation per dose.
 ::::
 
-```{r b3, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Posterior dose-response relationship and observed probabilities.", fig.width=6, fig.height=4}
+```{r b3, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Posterior dose-response relationship and observed probabilities.", fig.width=4, fig.height=3}
 #--------------------------------Question B3-----------------------------------#
 # posterior with normal distribution
 chains_output1 <- data.frame(mcmc.output1[[1]])
@@ -275,25 +277,19 @@ beta_t <- round(mean(df_output2$beta), 3)
 
 # Create a dataframe for plotting
 df_plotting <- data.frame(cbind(dose,N,y)) %>%
-  # Observed data
-  mutate(prob_observed = y/N) %>%
-  # Posterior with normal distribution
-  mutate(prob_n = expit(alpha_n + beta_n * dose)) %>%
-  # Posterior with t distribution
-  mutate(prob_t = expit(alpha_t + beta_t * dose))
-  
-colors <- c("Observed" = "black", "Posterior(normal distribution)" = "blue", "Posterior(t distribution)" = "red")
+  mutate(prob_observed = y/N,# Observed
+         prob_n = expit(alpha_n + beta_n * dose),# Posterior with normal distr
+         prob_t = expit(alpha_t + beta_t * dose)# Posterior with t distr
+         )
+
 ggplot(df_plotting, aes(x = dose)) +
-  geom_line(aes(y = prob_observed, color = "Observed"), linewidth = 1.2) +
-  geom_line(aes(y = prob_n, color = "Posterior(normal distribution)"),
-            linewidth = 1) +
+  geom_line(aes(y = prob_observed, color = "Observed")) +
+  geom_line(aes(y = prob_n, color = "Posterior(normal distribution)")) +
   geom_line(aes(y = prob_t, color = "Posterior(t distribution)"),
-            linewidth = 1, linetype = "twodash") +
-  labs(x = "Number of Dose", y = "Probability", color = "Legend") +
-  scale_color_manual(values = colors) +
-  ggtitle("Observed probabilities vs Posterior dose-response relationship") +
+            linetype = "dashed", linewidth = 1) +
+  labs(x = "Dose", y = "Probability", color = "") +
   theme_bw() +
-  theme(legend.position = c(0.8, 0.2))
+  theme(legend.position = c(0.65, 0.25))
 ```
 
 Figure \@ref(fig:b3) indicates that the trends in the posteriors exhibit a dose-response relationship that is similar to the observed probabilities, with the exception of the dose range of 50-70. Moreover, the posterior with t-distributed priors closely aligns with the posterior with normal distributed priors. In general, all three lines demonstrate an increasing probability of malformations as the dose increases, with this increase leveling off as the dose approaches approximately 400.
@@ -350,7 +346,128 @@ $$logit(\pi) = \alpha + \beta(d − \tau)I(d > \tau)$$,
 with $\tau$ the threshold dose below which there is no excess risk. Write code for this model, and summarize the results. How do these results compare with previous results?
 ::::
 
+In this threshold model, we essentially fit a piecewise linear regression for $logit(\pi)$:
 
+- if the dose is smaller than $\tau$, $I(d<\tau)=0$ meaning the intercept is $\alpha$ and the slope is zero.
+- if the dose is larger than $\tau$, $I(d<\tau)=1$ meaning the intercept is $\alpha -\beta\tau$ and the slope is $\beta$
+
+We will use the same vague priors from a Normal distribution:
+$$α \sim N(0,10000)$$
+$$β \sim N(0,10000)$$
+All other tuning parameter such as initial values and burn-in are chosen the same as in the previous model. We will test several models with $\tau \in \{0,62.5,125,250,500\}$. We will select the model that minimises the WAIC. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval= !file.exists("output/results_threshold_model.Rdata"), appendix=TRUE}
+#---------------------------Question B-----------------------------------------#
+#possibly interesting reference for piecewise linear regression in R with nimble
+#https://gkonstantinoudis.github.io/nimble/PiecewiseLinear.html 
+init1 <- list(alpha = 0, beta = 0)
+init2 <- list(alpha = -0.5, beta = 0.1)
+initial.values <- list(init1, init2)
+
+# MCMC settings
+n.iter <- 10000  # iterations
+n.burnin <- 5000 # burn-in
+n.chains <- 2    # chains
+
+
+testmodel <- function(tau = 0){
+  # Model settings
+  indicator <- 1*(dose > tau)
+  model.data <- list('dose' = dose, 'N' = N,'y' = y, 'indicator' = indicator)
+  model.constant <- list('n' = n)
+
+  # Model 1
+  # A prior with Normal Distribution
+  model <- nimbleCode({
+    # Specify a vague prior with normal distribution
+    alpha ~ dnorm(0, sd = 10000)
+    beta ~ dnorm(0, sd = 10000)
+    # likelihood
+    for (i in 1:n) {
+      logit(p[i]) <-  alpha + beta * dose[i] * indicator[i]
+      y[i] ~ dbin(p[i],N[i])
+    }})
+
+  # Output of Model 1
+  mcmc.output <- nimbleMCMC(code = model,
+                            data = model.data,
+                            constants = model.constant,
+                            inits = initial.values,
+                            niter = n.iter,
+                            nburnin = n.burnin,
+                            summary = TRUE,
+                            nchains = n.chains,
+                            WAIC = TRUE
+  )
+  return(mcmc.output)
+}
+tau_values <- c(0,62.5,125,250,500)
+results <- map(tau_values, testmodel)
+save(results, file = "output/results_threshold_model.Rdata")
+waic <- sapply(X = seq(length(tau_values)),
+      FUN = function(x) {results[[x]]$WAIC$WAIC})
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval= file.exists("output/results_threshold_model.Rdata"), appendix=FALSE}
+tau_values <- c(0,62.5,125,250,500)
+load("output/results_threshold_model.Rdata")
+waic <- sapply(X = seq(length(tau_values)),
+      FUN = function(x) {results[[x]]$WAIC$WAIC})
+```
+
+Figure \@ref(fig:threshold-WAIC) shows that the lowest WAIC is reached when $\tau=$ `r tau_values[which(waic == min(waic))]`. This means that, for doses $\leq$ `r tau_values[which(waic == min(waic))]`, $logit(\pi)=\alpha$, independent of the dose. For doses $>$ `r tau_values[which(waic == min(waic))]`, $logit(\pi)=\alpha + \beta(d-$ `r tau_values[which(waic == min(waic))]` $)$. 
+
+(ref:threshold-WAIC) WAIC for each value of $\tau$.
+
+```{r threshold-WAIC, echo=FALSE, message=FALSE, warning=FALSE, appendix=TRUE, fig.cap = "(ref:threshold-WAIC)",fig.height=3, fig.width=4}
+#plot the relationship between WAIC and tau
+data.frame(waic = waic,
+           tau = tau_values) %>%
+  ggplot(aes(x = tau, y = waic)) + 
+  geom_point() + 
+  geom_line() +
+  theme_bw() +
+  ylab("WAIC") + xlab(TeX("$\\tau$")) + 
+  geom_vline(aes(xintercept = tau_values[which(waic == min(waic))]),
+             linetype = "dashed") +
+  scale_x_continuous(breaks = tau_values)
+```
+
+For the model with the lowest WAIC, we show
+
+
+
+Figure \@ref(fig:threshold-posterior-fit) shows that the fit of the posterior dose-response relationship  with the observed probabilities improved combared to Figure \@ref(fig:b3), especially in the range with lower doses.
+
+```{r threshold-posterior-fit, echo=FALSE, message=FALSE, warning=FALSE, appendix=TRUE, fig.cap="Posterior dose-response relationship and observed probabilities for the model with the lowest WAIC.", fig.height=3, fig.width=4}
+#plot posterior vs observed probabilities
+chosen_model <- results[[which(waic == min(waic))]]
+chains_output1 <- data.frame(chosen_model[[1]])
+chain1_output1 <- chains_output1[, 1:2] %>%
+  rename("alpha" = "chain1.alpha", "beta" = "chain1.beta")
+chain2_output1 <- chains_output1[, 3:4] %>%
+  rename("alpha" = "chain2.alpha", "beta" = "chain2.beta")
+df_output1 <- rbind(chain1_output1, chain2_output1)
+# get the mean value of alpha and beta
+alpha_n <- round(mean(df_output1$alpha), 3)
+beta_n <- round(mean(df_output1$beta), 3)
+
+# Create a dataframe for plotting
+df_plotting <- data.frame(cbind(dose, N, y)) %>%
+  mutate(indicator = 1*(dose > tau_values[which(waic == min(waic))]),
+         prob_observed = y/N,
+         threshold_model = expit(alpha_n + beta_n * dose * indicator)
+         )
+ggplot(df_plotting, aes(x = dose)) +
+  geom_line(aes(y = prob_observed, color = "Observed")) +
+  geom_line(aes(y = threshold_model, color = "Threshold model"), linetype = "dashed") +
+  theme_bw() +
+  theme(legend.position = c(0.7, 0.2)) +
+  scale_color_discrete("") +
+  ylab("Probability") +
+  xlab("Dose")
+  
+```
 
 \clearpage
 \appendix
