@@ -10,6 +10,7 @@ output:
     includes:
       in_header: preamble.sty
       before_body: titlepage.sty
+bibliography: references.bib  
 ---
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE, appendix=TRUE}
@@ -27,18 +28,79 @@ knitr::opts_knit$set(
   root.dir = find_root(criterion = has_file("BayesianInference.Rproj")))
 ```
 
-# Task A
+# Task A: Cohort study smoking
 
 
 :::: {.greybox data-latex=""}
 ::: {.center data-latex=""}
-**Question 1**
+Abbott, Yin, Reed and Yano performed a 12-year cohort study to investigate
+the association between smoking and stroke. Among 3435 smokers, 171 had
+a stroke; while among 4437 non-smokers, 117 has a stroke.
 :::
 
-Here, we write question 1
+(1) Assuming a non-informative prior for the probability of disease among
+those exposed $\theta_{+}$, give the analytical posterior for the probability of
+disease among those exposed. Do the same for the probability of disease
+among those not exposed $\theta_{-}$.
 ::::
 
+In general, if $Y|\pi \sim Bin(n,\pi)$ is the data model and $\pi \sim Beta(\alpha, \beta)$ is the prior model, then the posterior model will be
+$$\pi|y \sim Beta(\alpha + y, \beta + n-y)$$.
+
+In the Beta distribution, there are several possibilities for uninformative priors [@tuyl2008comparison]. $\alpha=1, \beta=1$ generates an uniform probability density function. Jeffrey prior sets $\alpha=0.5, \beta=0.5$. And Kerman proposes to use a "Neutral" prior where $\alpha=\frac{1}{3}, \beta=\frac{1}{3}$ [@kerman2011neutral]. We will assume $\alpha=1, \beta=1$ which yields:
+
+$$\pi|y \sim Beta(\alpha + y, \beta + n-y)$$
+$$\pi|y \sim Beta(1 + 117, 1 + 4437-117)$$
+$$\pi|y \sim Beta(118, 4321)$$.
+
+
+:::: {.greybox data-latex=""}
+(2) Give some summary measures of the above posterior distributions.
+::::
+
+The posterior expected value is 
+$$E(\pi|y) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+117}{1+1+4437} = 0.02658256$$
+The posterior mode is   
+$$Mode(\pi|y) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+117-1}{1+1+4437-2} = 0.02636917$$
+
+and the posterior variance is
+
+
+$$Var(\pi|y) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+117)(1+4437-117)}{(1+1+4437)^2(1+1+4437+1)} = 5.83 *10^{-6}$$
+
+:::: {.greybox data-latex=""}
+(3) Can you visualise the posterior distribution of the relative risk, defined as
+$$\theta_{RR} = \frac{\theta_{+}}{\theta_{-}}$$
+Use a sample from the above derived analytical posterior distribution to answer this question. Give some summary measures of the posterior distribution of the relative risk. Can you conclude that there is an association between smoking and stroke?
+::::
+
+
+
+:::: {.greybox data-latex=""}
+(4) Write jags, OpenBugs or Nimble code, to obtain an MCMC samples
+for the above problem.
+::::
+
+:::: {.greybox data-latex=""}
+(5) Check convergence of the MCMC chain.
+:::: 
+
+:::: {.greybox data-latex=""}
+(6) Compare the summary measures obtained from the MCMC chain with
+the results obtained from questions (1)-(3).
+:::: 
+
+:::: {.greybox data-latex=""}
+(7) What is the attributable risk of smoking to the incidence of stroke?
+The attributable risk is defined as
+$$\theta_{AR} = \frac{\theta_{RR}-1}{\theta_{RR}}$$
+Extend your Bayesian MCMC code to derive the answer.
+:::: 
+
+
+
 # Task B: Dose-response model
+
 ```{r setup-taskB, include = FALSE, echo = FALSE, appendix = TRUE, cache = TRUE}
 #------------------------------setup task B------------------------------------#
 n <- 5
@@ -99,7 +161,7 @@ $$β \sim N(0,10000)$$
 And the second vague prior is:
 $$α \sim t(0,0.0001,5)$$
 $$β \sim t(0,0.0001,5)$$
-Our parameter settings include running 2 MCMC chains with different starting values for $\alpha$ and $\beta$. The first chain starts with ($\alpha=0$, $\beta=0$), while the second chain starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total of 10000 iterations, with the first 5000 iterations used as a burn-in period.
+Our parameter settings include running 2 MCMC chains with different starting values for $\alpha$ and $\beta$. The first chain starts with ($\alpha=0$, $\beta=0$), while the second chain starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total of 10000 iterations, with the first 5000 iterations used as a burn-in period. We will use Nimble for this task.
 
 ```{r echo=FALSE, include = FALSE, warning = FALSE, message = FALSE, appendix = TRUE}
 # Trace plots
@@ -527,6 +589,8 @@ ggplot(df_plotting, aes(x = dose)) +
 ```
 
 \clearpage
+
+
 \appendix
 
 # Appendix
@@ -548,3 +612,5 @@ labs = setdiff(labs, c("get-labels"))
 \clearpage
 
 
+
+# Bibliography
