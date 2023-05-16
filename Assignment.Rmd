@@ -44,29 +44,41 @@ disease among those exposed. Do the same for the probability of disease
 among those not exposed $\theta_{-}$.
 ::::
 
-In general, if $Y|\pi \sim Bin(n,\pi)$ is the data model and $\pi \sim Beta(\alpha, \beta)$ is the prior model, then the posterior model will be
-$$\pi|y \sim Beta(\alpha + y, \beta + n-y)$$.
+In general, if $Y|\theta \sim Bin(n,\pi)$ is the data model and $\theta \sim Beta(\alpha, \beta)$ is the prior model, then the posterior model will be
+$$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$.
 
 In the Beta distribution, there are several possibilities for uninformative priors [@tuyl2008comparison]. $\alpha=1, \beta=1$ generates an uniform probability density function. Jeffrey prior sets $\alpha=0.5, \beta=0.5$. And Kerman proposes to use a "Neutral" prior where $\alpha=\frac{1}{3}, \beta=\frac{1}{3}$ [@kerman2011neutral]. We will assume $\alpha=1, \beta=1$ which yields:
 
-$$\pi|y \sim Beta(\alpha + y, \beta + n-y)$$
-$$\pi|y \sim Beta(1 + 117, 1 + 4437-117)$$
-$$\pi|y \sim Beta(118, 4321)$$.
+$$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$
 
+For non-smokers, we thus have:
+$$\theta_{-}|y_{-} \sim Beta(1 + 117, 1 + 4437-117)$$
+$$\theta_{-}|y_{-} \sim Beta(118, 4321)$$
+For smokers, we have:
+$$\theta_{+}|y_{+} \sim Beta(1 + 171, 1 + 3435-171)$$
+
+$$\theta_{+}|y_{+} \sim Beta(172, 3265)$$
 
 :::: {.greybox data-latex=""}
 (2) Give some summary measures of the above posterior distributions.
 ::::
-
-The posterior expected value is 
-$$E(\pi|y) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+117}{1+1+4437} = 0.02658256$$
-The posterior mode is   
-$$Mode(\pi|y) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+117-1}{1+1+4437-2} = 0.02636917$$
+For the non-smokers, the posterior expected value is 
+$$E(\theta_{-}|y_{-}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+117}{1+1+4437} = 0.02658256$$
+the posterior mode is   
+$$Mode(\theta_{-}|y_{-}) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+117-1}{1+1+4437-2} = 0.02636917$$
 
 and the posterior variance is
 
+$$Var(\theta_{-}|y_{-}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+117)(1+4437-117)}{(1+1+4437)^2(1+1+4437+1)} = 5.83 *10^{-6}$$
 
-$$Var(\pi|y) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+117)(1+4437-117)}{(1+1+4437)^2(1+1+4437+1)} = 5.83 *10^{-6}$$
+For the smokers, the posterior expected value is 
+$$E(\theta_{+}|y_{+}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+171}{1+1+3435} = 0.05004364$$
+the posterior mode is   
+$$Mode(\theta_{+}|y_{+}) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+171-1}{1+1+3435-2} = 0.04978166$$
+
+and the posterior variance is
+
+$$Var(\theta_{+}|y_{+}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+171)(1+3435-171)}{(1+1+3435)^2(1+1+3435+1)} = 1.38 *10^{-5}$$ 
 
 :::: {.greybox data-latex=""}
 (3) Can you visualise the posterior distribution of the relative risk, defined as
@@ -74,6 +86,37 @@ $$\theta_{RR} = \frac{\theta_{+}}{\theta_{-}}$$
 Use a sample from the above derived analytical posterior distribution to answer this question. Give some summary measures of the posterior distribution of the relative risk. Can you conclude that there is an association between smoking and stroke?
 ::::
 
+```{r posterior-rr, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "Posterior distribution of the relative risk.", fig.width= 6, fig.height=4, fig.align = "default", appendix = TRUE}
+#-------------------------A3: posterior relative risk--------------------------#
+#set the parameters
+set.seed(2023)
+n <- 10000
+alpha_ns <- 118
+beta_ns <- 4321
+alpha_smoker <- 172
+beta_smoker <- 3265
+#draw random values from both posteriors ans calculate relative risk
+random_smoker <- rbeta(n, alpha_smoker, beta_smoker)
+random_ns <- rbeta(n, alpha_ns, beta_ns)
+random_rr <- random_smoker / random_ns
+
+d <- data.frame(smoker = random_smoker,
+                non_smoker = random_ns,
+                relative_risk = random_rr)
+#2.5 quantile lowest, median and 97.5%
+quantiles <- round(quantile(random_rr, probs = c(0.025, 0.5, 0.975)),3)
+
+
+ggplot(d) +
+  geom_histogram(aes(x = relative_risk),
+                 color = "black", fill = "transparent") +
+  theme_bw() +
+  xlab("Relative risk") 
+```
+
+We draw a random sample of size `r n` from both posterior Beta distributions and calculate the relative risk based on those. Figure \@ref(fig:posterior-rr) shows a histogram of the random sample of the relative risk. If the relative risk is significantly different from one, we can conclude that there is indeed an association between smoking ans stroke. Let's investigate this.
+
+The mean relative risk in our sample is `r round(mean(random_rr),3)` and the variance is `r round(var(random_rr),3)`. The median relative risk is `r unname(quantiles[2])`. The minimal relative risk is our sample is `r round(min(random_rr),3)`, meaning that the probability that the relative risk $<=1$ is equal to zero in our sample! Indeed, 95% of our sample lies between `r unname(quantiles[1])` and `r unname(quantiles[3])`. We can thus confidently say that smokers have a statistically significantly higher risk of getting a stroke than non smokers.
 
 
 :::: {.greybox data-latex=""}
