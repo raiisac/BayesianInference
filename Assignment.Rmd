@@ -191,6 +191,18 @@ mcmc.output1 <- nimbleMCMC(code = model_1,
 )
 ```
 :::: {.greybox data-latex=""}
+::: {.center data-latex=""}
+The first project concerns determining the dose-response relationship of a possible toxic product. Diethylene Glycol Dimethyl Ether (DYME), also referred to as diglyme, bis(2-methoxyethyl) ether is a high-volume industrial chemical with diverse applications. It is used to make industrial solvents, cosmetics, protective coatings, solvents in chemical synthesis, and is used in manufacturing of textile dyes. Price et al. (1987) describe a study in which timed-pregnant CD-1 mice were dosed by gavage with DYME in distilled water. Dosing occurred during the period of major organogenesis and structural development of the foetuses (gestational age 6 through 15). Relating the dose of DYME to the incidence of malformations in foetuses gives the following results:
+```{r warning=FALSE, echo=FALSE, message=FALSE}
+data.frame(Dose = dose,
+           N = N,
+           y = y) %>%
+  kable(booktabs = TRUE,
+        col.names = c("Dose", "Number of foetuses", "Number of malformations"))
+```
+::: 
+
+
 (1) Assume that the likelihood of the experiment is specified by
 $$y ∼ binomial(N, \pi)$$
 $$logit(π) = α + βd.$$
