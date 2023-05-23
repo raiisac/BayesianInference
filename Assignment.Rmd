@@ -11,6 +11,9 @@ output:
       in_header: preamble.sty
       before_body: titlepage.sty
 bibliography: references.bib  
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE, appendix=TRUE}
@@ -22,6 +25,9 @@ library('nimble')
 library(coda)
 library(cowplot)
 library(latex2exp)
+library(stats)
+library(rjags)
+library(BEST)
 
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(
@@ -30,61 +36,107 @@ knitr::opts_knit$set(
 
 # Task A: Cohort study smoking
 
-
-:::: {.greybox data-latex=""}
+::: {.greybox data-latex=""}
 ::: {.center data-latex=""}
-Abbott, Yin, Reed and Yano performed a 12-year cohort study to investigate
-the association between smoking and stroke. Among 3435 smokers, 171 had
-a stroke; while among 4437 non-smokers, 117 has a stroke.
+Abbott, Yin, Reed and Yano performed a 12-year cohort study to
+investigate the association between smoking and stroke. Among 3435
+smokers, 171 had a stroke; while among 4437 non-smokers, 117 has a
+stroke.
 :::
 
-(1) Assuming a non-informative prior for the probability of disease among
-those exposed $\theta_{+}$, give the analytical posterior for the probability of
-disease among those exposed. Do the same for the probability of disease
-among those not exposed $\theta_{-}$.
-::::
+(1) Assuming a non-informative prior for the probability of disease
+    among those exposed $\theta_{+}$, give the analytical posterior for
+    the probability of disease among those exposed. Do the same for the
+    probability of disease among those not exposed $\theta_{-}$.
+:::
 
-In general, if $Y|\theta \sim Bin(n,\pi)$ is the data model and $\theta \sim Beta(\alpha, \beta)$ is the prior model, then the posterior model will be
-$$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$.
+In general, if $Y|\theta \sim Bin(n,\pi)$ is the data model and
+$\theta \sim Beta(\alpha, \beta)$ is the prior model, then the posterior
+model will be $$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$.
 
-In the Beta distribution, there are several possibilities for uninformative priors [@tuyl2008comparison]. $\alpha=1, \beta=1$ generates an uniform probability density function. Jeffrey prior sets $\alpha=0.5, \beta=0.5$. And Kerman proposes to use a "Neutral" prior where $\alpha=\frac{1}{3}, \beta=\frac{1}{3}$ [@kerman2011neutral]. We will assume $\alpha=1, \beta=1$ which yields:
+In the Beta distribution, there are several possibilities for
+uninformative priors [@tuyl2008comparison]. $\alpha=1, \beta=1$
+generates an uniform probability density function. Jeffrey prior sets
+$\alpha=0.5, \beta=0.5$. And Kerman proposes to use a "Neutral" prior
+where $\alpha=\frac{1}{3}, \beta=\frac{1}{3}$ [@kerman2011neutral]. We
+will assume $\alpha=1, \beta=1$ which yields:
 
 $$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$
 
 For non-smokers, we thus have:
 $$\theta_{-}|y_{-} \sim Beta(1 + 117, 1 + 4437-117)$$
-$$\theta_{-}|y_{-} \sim Beta(118, 4321)$$
-For smokers, we have:
+$$\theta_{-}|y_{-} \sim Beta(118, 4321)$$ For smokers, we have:
 $$\theta_{+}|y_{+} \sim Beta(1 + 171, 1 + 3435-171)$$
 
 $$\theta_{+}|y_{+} \sim Beta(172, 3265)$$
 
-:::: {.greybox data-latex=""}
+::: {.greybox data-latex=""}
 (2) Give some summary measures of the above posterior distributions.
-::::
-For the non-smokers, the posterior expected value is 
+:::
+
+Non-smokers: posterior summary measures For the non-smokers, the
+posterior expected value is
 $$E(\theta_{-}|y_{-}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+117}{1+1+4437} = 0.02658256$$
-the posterior mode is   
+the posterior mode is\
 $$Mode(\theta_{-}|y_{-}) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+117-1}{1+1+4437-2} = 0.02636917$$
+the posterior median is $$Median(\theta_{-}|y_{-}) = 0.02651149$$
+
+```{r eval=FALSE, include=FALSE}
+
+alpha.ns <- 118
+beta.ns <- 4321
+# posterior median
+qbeta(0.5, shape1 = alpha.ns, shape2 = beta.ns) # 0.02651149
+```
 
 and the posterior variance is
 
 $$Var(\theta_{-}|y_{-}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+117)(1+4437-117)}{(1+1+4437)^2(1+1+4437+1)} = 5.83 *10^{-6}$$
+The equal tail credible interval for nonsmokers is equal to [0.0221,
+0.0315]
 
-For the smokers, the posterior expected value is 
+```{r eval=FALSE, include=FALSE}
+# equal tail credible interval
+c(qbeta(0.025, shape1 = alpha.ns, shape2 = beta.ns), qbeta(0.975, shape1 = alpha.ns, shape2 = beta.ns))
+```
+
+The 95% highest posterior density interval is equal to [0.0219, 0.0314].
+
+```{r include=FALSE}
+# 95% highest posterior density 
+hpdbeta <- function(alpha,beta)
+{
+p2 <- alpha
+q2 <- beta
+f <- function(x,p=p2,q=q2){
+b<-qbeta(pbeta(x,p,q)+0.95,p,q);(dbeta(x,p,q)-dbeta(b,p,q))^2}
+hpdmin <- optimize(f,lower=0,upper=qbeta(0.05,p2,q2),p=p2,q=q2)$minimum #requires stats library
+hpdmax <- qbeta(pbeta(hpdmin,p2,q2)+0.95,p2,q2)
+return(c(hpdmin,hpdmax))
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+hpdbeta(alpha.ns, beta.ns)
+```
+
+For the smokers, the posterior expected value is
 $$E(\theta_{+}|y_{+}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+171}{1+1+3435} = 0.05004364$$
-the posterior mode is   
+the posterior mode is\
 $$Mode(\theta_{+}|y_{+}) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+171-1}{1+1+3435-2} = 0.04978166$$
 
 and the posterior variance is
 
-$$Var(\theta_{+}|y_{+}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+171)(1+3435-171)}{(1+1+3435)^2(1+1+3435+1)} = 1.38 *10^{-5}$$ 
+$$Var(\theta_{+}|y_{+}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+171)(1+3435-171)}{(1+1+3435)^2(1+1+3435+1)} = 1.38 *10^{-5}$$
 
-:::: {.greybox data-latex=""}
-(3) Can you visualise the posterior distribution of the relative risk, defined as
-$$\theta_{RR} = \frac{\theta_{+}}{\theta_{-}}$$
-Use a sample from the above derived analytical posterior distribution to answer this question. Give some summary measures of the posterior distribution of the relative risk. Can you conclude that there is an association between smoking and stroke?
-::::
+::: {.greybox data-latex=""}
+(3) Can you visualise the posterior distribution of the relative risk,
+    defined as $$\theta_{RR} = \frac{\theta_{+}}{\theta_{-}}$$ Use a
+    sample from the above derived analytical posterior distribution to
+    answer this question. Give some summary measures of the posterior
+    distribution of the relative risk. Can you conclude that there is an
+    association between smoking and stroke?
+:::
 
 ```{r posterior-rr, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "Posterior distribution of the relative risk.", fig.width= 6, fig.height=4, fig.align = "default", appendix = TRUE}
 #-------------------------A3: posterior relative risk--------------------------#
@@ -114,33 +166,154 @@ ggplot(d) +
   xlab("Relative risk") 
 ```
 
-We draw a random sample of size `r n` from both posterior Beta distributions and calculate the relative risk based on those. Figure \@ref(fig:posterior-rr) shows a histogram of the random sample of the relative risk. If the relative risk is significantly different from one, we can conclude that there is indeed an association between smoking ans stroke. Let's investigate this.
+We draw a random sample of size `r n` from both posterior Beta
+distributions and calculate the relative risk based on those. Figure
+\@ref(fig:posterior-rr) shows a histogram of the random sample of the
+relative risk. If the relative risk is significantly different from one,
+we can conclude that there is indeed an association between smoking ans
+stroke. Let's investigate this.
 
-The mean relative risk in our sample is `r round(mean(random_rr),3)` and the variance is `r round(var(random_rr),3)`. The median relative risk is `r unname(quantiles[2])`. The minimal relative risk is our sample is `r round(min(random_rr),3)`, meaning that the probability that the relative risk $<=1$ is equal to zero in our sample! Indeed, 95% of our sample lies between `r unname(quantiles[1])` and `r unname(quantiles[3])`. We can thus confidently say that smokers have a statistically significantly higher risk of getting a stroke than non smokers.
+The mean relative risk in our sample is `r round(mean(random_rr),3)` and
+the variance is `r round(var(random_rr),3)`. The median relative risk is
+`r unname(quantiles[2])`. The minimal relative risk is our sample is
+`r round(min(random_rr),3)`, meaning that the probability that the
+relative risk $<=1$ is equal to zero in our sample! Indeed, 95% of our
+sample lies between `r unname(quantiles[1])` and
+`r unname(quantiles[3])`. We can thus confidently say that smokers have
+a statistically significantly higher risk of getting a stroke than non
+smokers.
+
+::: {.greybox data-latex=""}
+(4) Write jags, OpenBugs or Nimble code, to obtain an MCMC samples for
+    the above problem.
+:::
+We use jags to obtain MCMC samples. First, we specify data values, parameters, and our jags model. To run MCMC, we specify the maximum likelihood estimates as initial values and set the number of chains to 4. We initially set the number of chains to 3 but change to 4 as convergence results appear to be better than 3 without compromising much on computation cost. Finally, we simulate 10,000 values from the approximated posterior distribution calculated using MCMC. We do not specify a burn-in period as convergence results are fine without it.  
+
+```{r}
+# step 1: load data
+# 1: smokers 
+alpha1 <- 172
+beta1 <- 3265
+n1 <- 3435
+y1 <- 171
+
+# 2: nonsmokers
+alpha2 <- 118 
+beta2 <- 4321
+n2 <- 4437
+y2 <- 117
+
+# step 2: specify model
+model.string <- "model{
+
+  # Likelihood
+  y1 ~ dbinom(theta1, n1)
+  y2 ~ dbinom(theta2, n2)
+
+  # Prior
+  theta1 ~ dbeta(alpha, beta)
+  theta2 ~ dbeta(alpha, beta)
+  alpha <- 1 # prior successes
+  beta <- 1 # prior failures
+
+}"
+
+# Step 3: compile in JAGS
+data.list <- list(n1 = n1, y1 = y1, n2 = n2, y2 = y2)
 
 
-:::: {.greybox data-latex=""}
-(4) Write jags, OpenBugs or Nimble code, to obtain an MCMC samples
-for the above problem.
-::::
+init.list <- list(theta1 = sum(data.list$y1)/length(data.list$y1), #using maximum likelihood estimates 
+                  theta2 = sum(data.list$y2)/length(data.list$y2))
 
-:::: {.greybox data-latex=""}
+jagsmodel <- jags.model(file = textConnection(model.string), 
+                          data = data.list,
+                          inits = init.list, 
+                          n.chains = 4)
+
+# Step 4: simulate values from the posterior distribution
+posterior.sim <- coda.samples(model = jagsmodel, variable.names = c("theta+", "theta_"), n.iter = 10000)
+
+```
+
+::: {.greybox data-latex=""}
 (5) Check convergence of the MCMC chain.
-:::: 
+:::
+Diagnostic measures, Gelman-Rubin statistic and visual plot, trace and ACF plots, as well as effective sample size (ESF) are used to assess convergence.All measures point towards proper convergence. The following delineates the results for each aforementioned diagnostic measure: 
 
-:::: {.greybox data-latex=""}
-(6) Compare the summary measures obtained from the MCMC chain with
-the results obtained from questions (1)-(3).
-:::: 
+1) Gelman-Rubin statistic and visual plot
+The Gelman-Rubin statistic for both $$\theta_+$$ and $$\theta_-$$ are equal to 1. The Gelman-Rubin visual plot further illustrates convergence as the median for both $$\theta_+$$ and $$\theta_-$$ approximately convergences to 1.
 
-:::: {.greybox data-latex=""}
+2) The trace plots of both $$\theta_+$$ and $$\theta_-$$ do not show irregularity with the chains fluctuating around 0.050 for $$\theta_+$$ and 0.027 for $$\theta_-$$. The trace plots appear to be stable and stationary.
+
+3) The overwhelmingly large effective sample size (ESS) for all chains combined (e.g., $$ESS_{\theta_+} \approx 23,576$$; $$ESS_{\theta_-} \approx 24,182$$) indicates sufficient independent samples. Furthermore, all chains have similar similar ESS scores ranging from 5565 to 6482 which indicates consistency across four chains. All four chains combined and separately point towards proper convergence. 
+
+4) ACF plots of both $$\theta_+$$ and $$\theta_-$$ show rapid decay as lags increase which shows that subsequent sample become less and less correlated to the samples before it. This further points towards proper convergence. 
+```{r}
+# 1) gelman-rubin 
+gelman.diag(posterior.sim)
+gelman.plot(posterior.sim)
+
+# 2) trace plots
+plot(posterior.sim, density = FALSE)
+
+# 3) effective sample size
+effectiveSize(posterior.sim)# all chains
+
+# ESS for each chain 
+chain1 <- posterior.sim[[1]]
+chain2 <- posterior.sim[[2]]
+chain3 <- posterior.sim[[3]]
+chain4 <- posterior.sim[[4]]
+
+chains <- list(chain1, chain2, chain3, chain4)
+ess.values <- length(chains)
+
+for (i in 1:length(chains)) { 
+  # Compute the ESS for each chain
+  mcmc.chain <- mcmc(chains[[i]])
+  ess.values[i] <- effectiveSize(mcmc.chain) 
+}
+
+for (i in 1:length(chains)) {
+  cat("ESS for Chain", i, ":", ess.values[i], "\n")
+}
+
+# 4) ACF 
+par(mfrow = c(1,2))
+acf(MCMCchain[,1], main =" theta1")
+acf(MCMCchain[,2], main = "theta2")
+```
+
+::: {.greybox data-latex=""}
+(6) Compare the summary measures obtained from the MCMC chain with the results obtained from questions (1)-(3).
+:::
+The summary measures obtained analytically and from MCMC are similar. The analytical approach generated a mean of 1.9, with a 95% highest density interval (HDI) that ranged from 1.48 to 2.34. Similarly, the MCMC approach yield a mean of 1.89, with a 95% HDI ranging from 1.46 to 2.34. Here, the difference between the two means is only 0.01 points.
+
+```{r}
+# Step 5: summarize simulated values
+posterior.sum <- summary(posterior.sim)
+
+# quantiles
+quantile(relative.risk ,probs = c(0.025, 0.5, 0.975)) #MCMC
+
+# analytical vs MCMC posterior distribution comparison
+par(mfrow = c(1,2))
+plotPost(random_rr, xlab = "Analytical Derivation", mainColor = "white", border = "black" )
+plotPost(relative.risk, xlab = "MCMC Computation", mainColor = "white", border = "black")
+mtext("Analytical Derivation vs MCMC Computation of Relative Risk", side = 3, line = 2, adj = 1, cex = 2)
+```
+
+::: {.greybox data-latex=""}
 (7) What is the attributable risk of smoking to the incidence of stroke?
-The attributable risk is defined as
-$$\theta_{AR} = \frac{\theta_{RR}-1}{\theta_{RR}}$$
-Extend your Bayesian MCMC code to derive the answer.
-:::: 
+    The attributable risk is defined as
+    $$\theta_{AR} = \frac{\theta_{RR}-1}{\theta_{RR}}$$ Extend your
+    Bayesian MCMC code to derive the answer.
+:::
 
-
+```{r}
+attrib.risk <- (relative.risk - 1) / relative.risk
+plotPost(attrib.risk)
+```
 
 # Task B: Dose-response model
 
@@ -190,9 +363,21 @@ mcmc.output1 <- nimbleMCMC(code = model_1,
                           nchains = n.chains
 )
 ```
-:::: {.greybox data-latex=""}
+
+::: {.greybox data-latex=""}
 ::: {.center data-latex=""}
-The first project concerns determining the dose-response relationship of a possible toxic product. Diethylene Glycol Dimethyl Ether (DYME), also referred to as diglyme, bis(2-methoxyethyl) ether is a high-volume industrial chemical with diverse applications. It is used to make industrial solvents, cosmetics, protective coatings, solvents in chemical synthesis, and is used in manufacturing of textile dyes. Price et al. (1987) describe a study in which timed-pregnant CD-1 mice were dosed by gavage with DYME in distilled water. Dosing occurred during the period of major organogenesis and structural development of the foetuses (gestational age 6 through 15). Relating the dose of DYME to the incidence of malformations in foetuses gives the following results:
+The first project concerns determining the dose-response relationship of
+a possible toxic product. Diethylene Glycol Dimethyl Ether (DYME), also
+referred to as diglyme, bis(2-methoxyethyl) ether is a high-volume
+industrial chemical with diverse applications. It is used to make
+industrial solvents, cosmetics, protective coatings, solvents in
+chemical synthesis, and is used in manufacturing of textile dyes. Price
+et al. (1987) describe a study in which timed-pregnant CD-1 mice were
+dosed by gavage with DYME in distilled water. Dosing occurred during the
+period of major organogenesis and structural development of the foetuses
+(gestational age 6 through 15). Relating the dose of DYME to the
+incidence of malformations in foetuses gives the following results:
+
 ```{r warning=FALSE, echo=FALSE, message=FALSE}
 data.frame(Dose = dose,
            N = N,
@@ -200,23 +385,28 @@ data.frame(Dose = dose,
   kable(booktabs = TRUE,
         col.names = c("Dose", "Number of foetuses", "Number of malformations"))
 ```
-::: 
-
+:::
 
 (1) Assume that the likelihood of the experiment is specified by
-$$y ∼ binomial(N, \pi)$$
-$$logit(π) = α + βd.$$
-Here $\beta$ is the parameter of interest. Take vague priors for $\alpha$ and $\beta$. Write jags, OpenBugs or Nimble code for this problem. Take 2 MCMC chains with different starting values, and check convergence with the appropriate techniques.
-::::
+    $$y ∼ binomial(N, \pi)$$ $$logit(π) = α + βd.$$ Here $\beta$ is the
+    parameter of interest. Take vague priors for $\alpha$ and $\beta$.
+    Write jags, OpenBugs or Nimble code for this problem. Take 2 MCMC
+    chains with different starting values, and check convergence with
+    the appropriate techniques.
+:::
 
-To denote the uncertainty of parameters $\alpha$ and $\beta$, we specify two vague priors as a massive variance (extremely small precision) for these two parameters. The first vague prior is:
-$$α \sim N(0,10000)$$
+To denote the uncertainty of parameters $\alpha$ and $\beta$, we specify
+two vague priors as a massive variance (extremely small precision) for
+these two parameters. The first vague prior is: $$α \sim N(0,10000)$$
 $$β \sim N(0,10000)$$
 
-And the second vague prior is:
-$$α \sim t(0,0.0001,5)$$
-$$β \sim t(0,0.0001,5)$$
-Our parameter settings include running 2 MCMC chains with different starting values for $\alpha$ and $\beta$. The first chain starts with ($\alpha=0$, $\beta=0$), while the second chain starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total of 10000 iterations, with the first 5000 iterations used as a burn-in period. We will use Nimble for this task.
+And the second vague prior is: $$α \sim t(0,0.0001,5)$$
+$$β \sim t(0,0.0001,5)$$ Our parameter settings include running 2 MCMC
+chains with different starting values for $\alpha$ and $\beta$. The
+first chain starts with ($\alpha=0$, $\beta=0$), while the second chain
+starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total
+of 10000 iterations, with the first 5000 iterations used as a burn-in
+period. We will use Nimble for this task.
 
 ```{r echo=FALSE, include = FALSE, warning = FALSE, message = FALSE, appendix = TRUE}
 # Trace plots
@@ -248,16 +438,32 @@ knitr::include_graphics("images/trace_normal.pdf")
 knitr::include_graphics("images/gelman_normal.pdf")
 ```
 
-
 ```{r acplot-normal, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Autocorrelation plots of α and β (prior: normal distribution)", fig.show = "hold", out.width = "50%", fig.align = "default"}
 knitr::include_graphics("images/ac1_normal.pdf")
 knitr::include_graphics("images/ac2_normal.pdf")
 ```
 
-
-To assess the convergence of the model with a prior normal distribution, we employed several diagnostic tools including trace plots, the Gelman-Rubin diagnostic test, and autocorrelation plots. 
-We observed from the trace plots of $\alpha$ and $\beta$ (refer to Figure \@ref(fig:trace-gelman-rubin-normal)) that the estimates from each chain quickly stabilized around a steady state. Additionally, both chains were found to converge around the same conclusion. Furthermore, we conducted the Gelman-Rubin diagnostic test, which showed that the estimated potential scale reduction factors of $\alpha$ and $\beta$ were both 1. These results suggest that our model has converged well. Moreover, the Gelman-Rubin diagnostic plots (refer to Figure \@ref(fig:trace-gelman-rubin-normal)) support this conclusion, as both the potential scale reduction factors of $\alpha$ and $\beta$ were found to decrease quickly and remain stable as the number of iterations increased. We also examined the autocorrelation plots (refer to Figure \@ref(fig:acplot-normal)), which indicated low autocorrelation. The autocorrelation decreased and remained around zero as the lag number increased, indicating that the chains have mixed well.
-Overall, these diagnostic tools suggest that our model that the prior is normal distribution has converged well, and the inference based on the Markov chain Monte Carlo simulation is reliable.
+To assess the convergence of the model with a prior normal distribution,
+we employed several diagnostic tools including trace plots, the
+Gelman-Rubin diagnostic test, and autocorrelation plots. We observed
+from the trace plots of $\alpha$ and $\beta$ (refer to Figure
+\@ref(fig:trace-gelman-rubin-normal)) that the estimates from each chain
+quickly stabilized around a steady state. Additionally, both chains were
+found to converge around the same conclusion. Furthermore, we conducted
+the Gelman-Rubin diagnostic test, which showed that the estimated
+potential scale reduction factors of $\alpha$ and $\beta$ were both 1.
+These results suggest that our model has converged well. Moreover, the
+Gelman-Rubin diagnostic plots (refer to Figure
+\@ref(fig:trace-gelman-rubin-normal)) support this conclusion, as both
+the potential scale reduction factors of $\alpha$ and $\beta$ were found
+to decrease quickly and remain stable as the number of iterations
+increased. We also examined the autocorrelation plots (refer to Figure
+\@ref(fig:acplot-normal)), which indicated low autocorrelation. The
+autocorrelation decreased and remained around zero as the lag number
+increased, indicating that the chains have mixed well. Overall, these
+diagnostic tools suggest that our model that the prior is normal
+distribution has converged well, and the inference based on the Markov
+chain Monte Carlo simulation is reliable.
 
 ```{r cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = FALSE}
 # Model 2
@@ -313,20 +519,27 @@ knitr::include_graphics("images/trace_t.pdf")
 knitr::include_graphics("images/gelman_t.pdf")
 ```
 
-
 ```{r acplot-t, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Autocorrelation plots of α and β (prior: t-distribution)", fig.show = "hold", out.width = "50%", fig.align = "default"}
 knitr::include_graphics("images/ac1_t.pdf")
 knitr::include_graphics("images/ac2_t.pdf")
 ```
-  
-We analyzed the convergence of the model with a prior t-distribution using trace plots, autocorrelation plots, and Gelman-Rubin diagnostic plots, which are presented in Figure \@ref(fig:trace-gelman-rubin-t) and Figure \@ref(fig:acplot-t). We observed that all the trends remained consistent with the plots obtained using a normal distribution for $\alpha$ and $\beta$. Moreover, the estimated potential scale reduction factors of $\alpha$ and $\beta$ were found to be equal to 1, indicating good convergence of the model. These results provide compelling evidence that the model with a prior t-distribution has achieved good convergence and that the inference derived from the Markov chain Monte Carlo simulation is reliable.
 
+We analyzed the convergence of the model with a prior t-distribution
+using trace plots, autocorrelation plots, and Gelman-Rubin diagnostic
+plots, which are presented in Figure \@ref(fig:trace-gelman-rubin-t) and
+Figure \@ref(fig:acplot-t). We observed that all the trends remained
+consistent with the plots obtained using a normal distribution for
+$\alpha$ and $\beta$. Moreover, the estimated potential scale reduction
+factors of $\alpha$ and $\beta$ were found to be equal to 1, indicating
+good convergence of the model. These results provide compelling evidence
+that the model with a prior t-distribution has achieved good convergence
+and that the inference derived from the Markov chain Monte Carlo
+simulation is reliable.
 
-
-:::: {.greybox data-latex=""}
-(2) Summarize all results graphically and summarize with the usual Bayesian posterior measures. What do you conclude from these?
-::::
-
+::: {.greybox data-latex=""}
+(2) Summarize all results graphically and summarize with the usual
+    Bayesian posterior measures. What do you conclude from these?
+:::
 
 ```{r b2fig, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Density plots of α and β with normal distribution (top) and t distribution (bottom).", fig.width=6, fig.height=4}
 #--------------------------------Question B2-----------------------------------#
@@ -335,7 +548,11 @@ densplot(as.mcmc(mcmc.output1$samples$chain1,mcmc.output1$samples$chain2))
 densplot(as.mcmc(mcmc.output2$samples$chain1,mcmc.output2$samples$chain2))
 ```
 
-The density plots with a normal distributed prior and a t distributed prior, as presented in Figure \@ref(fig:b2fig). The plots for both $\alpha$ and $\beta$ display smooth distributions with similar mean values, suggesting that both priors lead to similar approximations of the true posterior distribution.
+The density plots with a normal distributed prior and a t distributed
+prior, as presented in Figure \@ref(fig:b2fig). The plots for both
+$\alpha$ and $\beta$ display smooth distributions with similar mean
+values, suggesting that both priors lead to similar approximations of
+the true posterior distribution.
 
 ```{r b2, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
 # Normal distribution
@@ -362,11 +579,19 @@ as.data.frame(rbind(mcmc.output1$summary$all.chains[, -c(4, 5)],
                          start_row = 3, end_row = 4)
 ```
 
-Based on the Bayesian posterior measures of α and β (Table \@ref(tab:b2)), it can be concluded that the probability of malformations is ?????0.143????? in the absence of any administered dose. As the dose increases, the probability of malformations also increases, indicating a positive dose-response relationship. Additionally, the 95% highest posterior density (HPD) interval, which captures the 95% most plausible parameter values, does not include the value of 0, providing evidence for the existence of a dose effect.
+Based on the Bayesian posterior measures of α and β (Table
+\@ref(tab:b2)), it can be concluded that the probability of
+malformations is ?????0.143????? in the absence of any administered
+dose. As the dose increases, the probability of malformations also
+increases, indicating a positive dose-response relationship.
+Additionally, the 95% highest posterior density (HPD) interval, which
+captures the 95% most plausible parameter values, does not include the
+value of 0, providing evidence for the existence of a dose effect.
 
-:::: {.greybox data-latex=""}
-(3) Plot the posterior dose-response relationship together with the observed probabilities of a malformation per dose.
-::::
+::: {.greybox data-latex=""}
+(3) Plot the posterior dose-response relationship together with the
+    observed probabilities of a malformation per dose.
+:::
 
 ```{r b3, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Posterior dose-response relationship and observed probabilities.", fig.width=4, fig.height=3}
 #--------------------------------Question B3-----------------------------------#
@@ -409,16 +634,27 @@ ggplot(df_plotting, aes(x = dose)) +
   theme(legend.position = c(0.65, 0.25))
 ```
 
-Figure \@ref(fig:b3) indicates that the trends in the posteriors exhibit a dose-response relationship that is similar to the observed probabilities, with the exception of the dose range of 50-70. Moreover, the posterior with t-distributed priors closely aligns with the posterior with normal distributed priors. In general, all three lines demonstrate an increasing probability of malformations as the dose increases, with this increase leveling off as the dose approaches approximately 400.
+Figure \@ref(fig:b3) indicates that the trends in the posteriors exhibit
+a dose-response relationship that is similar to the observed
+probabilities, with the exception of the dose range of 50-70. Moreover,
+the posterior with t-distributed priors closely aligns with the
+posterior with normal distributed priors. In general, all three lines
+demonstrate an increasing probability of malformations as the dose
+increases, with this increase leveling off as the dose approaches
+approximately 400.
 
-
-:::: {.greybox data-latex=""}
-(4) A safe level of exposure can be defined as a dose corresponding to a very small increase in excess risk of q, e.g. q = 0.05. This is called the Benchmark dose (BMD) $d^∗$ and can be obtained by solving the equation
-$$r(d^*) = \frac{P(d^*) − P(0)}{1 − P(0)} = q$$
-with $P(d)$ the probability of an adverse effect at dose level d. For a logistic regression with a linear dose model, the BMD is given by 
-$$BMD = \frac{logit(q^*) − \alpha}{\beta}$$
-with $q^* = q(1 − P(0)) + P(0)$. Determine the posterior estimate of the safe level of exposure for DYME corresponding with an excess risk of $q$ = 0.05.
-::::
+::: {.greybox data-latex=""}
+(4) A safe level of exposure can be defined as a dose corresponding to a
+    very small increase in excess risk of q, e.g. q = 0.05. This is
+    called the Benchmark dose (BMD) $d^∗$ and can be obtained by solving
+    the equation $$r(d^*) = \frac{P(d^*) − P(0)}{1 − P(0)} = q$$ with
+    $P(d)$ the probability of an adverse effect at dose level d. For a
+    logistic regression with a linear dose model, the BMD is given by
+    $$BMD = \frac{logit(q^*) − \alpha}{\beta}$$ with
+    $q^* = q(1 − P(0)) + P(0)$. Determine the posterior estimate of the
+    safe level of exposure for DYME corresponding with an excess risk of
+    $q$ = 0.05.
+:::
 
 ```{r b4, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
 #--------------------------------Question B4-----------------------------------#
@@ -454,24 +690,35 @@ data.frame(Prior = c("Normal distribution", "t-distribution"),
   kableExtra::kable_styling()
 ```
 
-The posterior mean values for BMD and the corresponding HPD interval are shown in Table \@ref(tab:b4). The lower bounds of the HPD interval for the prior normal distribution (`r hpd_n[5, "upper"]` for Normal distribution and `r hpd_t[5, "upper"]` for t-distribution) should be considered as the Benchmark does.
+The posterior mean values for BMD and the corresponding HPD interval are
+shown in Table \@ref(tab:b4). The lower bounds of the HPD interval for
+the prior normal distribution (`r hpd_n[5, "upper"]` for Normal
+distribution and `r hpd_t[5, "upper"]` for t-distribution) should be
+considered as the Benchmark does.
 
-:::: {.greybox data-latex=""}
-(5) As an alternative, a safe level of exposure can be obtained from a threshold model, defined as
-$$y ∼ binomial(N, \pi)$$
-$$logit(\pi) = \alpha + \beta(d − \tau)I(d > \tau)$$,
-with $\tau$ the threshold dose below which there is no excess risk. Write code for this model, and summarize the results. How do these results compare with previous results?
-::::
+::: {.greybox data-latex=""}
+(5) As an alternative, a safe level of exposure can be obtained from a
+    threshold model, defined as $$y ∼ binomial(N, \pi)$$
+    $$logit(\pi) = \alpha + \beta(d − \tau)I(d > \tau)$$, with $\tau$
+    the threshold dose below which there is no excess risk. Write code
+    for this model, and summarize the results. How do these results
+    compare with previous results?
+:::
 
-In this threshold model, we essentially fit a piecewise linear regression for $logit(\pi)$:
+In this threshold model, we essentially fit a piecewise linear
+regression for $logit(\pi)$:
 
-- if the dose is smaller than $\tau$, $I(d<\tau)=0$ meaning the intercept is $\alpha$ and the slope is zero.
-- if the dose is larger than $\tau$, $I(d<\tau)=1$ meaning the intercept is $\alpha -\beta\tau$ and the slope is $\beta$
+-   if the dose is smaller than $\tau$, $I(d<\tau)=0$ meaning the
+    intercept is $\alpha$ and the slope is zero.
+-   if the dose is larger than $\tau$, $I(d<\tau)=1$ meaning the
+    intercept is $\alpha -\beta\tau$ and the slope is $\beta$
 
 We will use the same vague priors from a Normal distribution:
-$$α \sim N(0,10000)$$
-$$β \sim N(0,10000)$$
-All other tuning parameter such as initial values and burn-in are chosen the same as in the previous model. We will test several models with $\tau \in \{0,62.5,125,250,500\}$. We will select the model that minimises the WAIC. 
+$$α \sim N(0,10000)$$ $$β \sim N(0,10000)$$ All other tuning parameter
+such as initial values and burn-in are chosen the same as in the
+previous model. We will test several models with
+$\tau \in \{0,62.5,125,250,500\}$. We will select the model that
+minimises the WAIC.
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, eval= !file.exists("output/results_threshold_model.Rdata"), appendix=TRUE}
 #---------------------------Question B-----------------------------------------#
@@ -532,7 +779,12 @@ waic <- sapply(X = seq(length(tau_values)),
       FUN = function(x) {results[[x]]$WAIC$WAIC})
 ```
 
-Figure \@ref(fig:threshold-WAIC) shows that the lowest WAIC is reached when $\tau=$ `r tau_values[which(waic == min(waic))]`. This means that, for doses $\leq$ `r tau_values[which(waic == min(waic))]`, $logit(\pi)=\alpha$, independent of the dose. For doses $>$ `r tau_values[which(waic == min(waic))]`, $logit(\pi)=\alpha + \beta(d-$ `r tau_values[which(waic == min(waic))]` $)$. 
+Figure \@ref(fig:threshold-WAIC) shows that the lowest WAIC is reached
+when $\tau=$ `r tau_values[which(waic == min(waic))]`. This means that,
+for doses $\leq$ `r tau_values[which(waic == min(waic))]`,
+$logit(\pi)=\alpha$, independent of the dose. For doses $>$
+`r tau_values[which(waic == min(waic))]`, $logit(\pi)=\alpha + \beta(d-$
+`r tau_values[which(waic == min(waic))]` $)$.
 
 (ref:threshold-WAIC) WAIC for each value of $\tau$.
 
@@ -552,8 +804,24 @@ data.frame(waic = waic,
 chosen_model <- results[[which(waic == min(waic))]]
 ```
 
-For the model with the lowest WAIC, we observe from the trace plots of $\alpha$ and $\beta$ (refer to Figure \@ref(fig:trace-gelman-rubin-threshold)) that the estimates from each chain quickly stabilized around a steady state. Additionally, both chains were found to converge around the same conclusion. The Gelman-Rubin diagnostic test showed that the estimated potential scale reduction factors of $\alpha$ and $\beta$ were both 1. These results suggest that our model has converged well. Moreover, the Gelman-Rubin diagnostic plots (Figure \@ref(fig:trace-gelman-rubin-threshold)) support this conclusion, as both the potential scale reduction factors of $\alpha$ and $\beta$ were found to decrease quickly and remain stable as the number of iterations increased. We also examined the autocorrelation plots (refer to Figure \@ref(fig:acplot-threshold)), which indicated low autocorrelation. The autocorrelation decreased and remained around zero as the lag number increased, indicating that the chains have mixed well.
-Overall, these diagnostic tools suggest that our model that the has converged well, and the inference based on the Markov chain Monte Carlo simulation is reliable.
+For the model with the lowest WAIC, we observe from the trace plots of
+$\alpha$ and $\beta$ (refer to Figure
+\@ref(fig:trace-gelman-rubin-threshold)) that the estimates from each
+chain quickly stabilized around a steady state. Additionally, both
+chains were found to converge around the same conclusion. The
+Gelman-Rubin diagnostic test showed that the estimated potential scale
+reduction factors of $\alpha$ and $\beta$ were both 1. These results
+suggest that our model has converged well. Moreover, the Gelman-Rubin
+diagnostic plots (Figure \@ref(fig:trace-gelman-rubin-threshold))
+support this conclusion, as both the potential scale reduction factors
+of $\alpha$ and $\beta$ were found to decrease quickly and remain stable
+as the number of iterations increased. We also examined the
+autocorrelation plots (refer to Figure \@ref(fig:acplot-threshold)),
+which indicated low autocorrelation. The autocorrelation decreased and
+remained around zero as the lag number increased, indicating that the
+chains have mixed well. Overall, these diagnostic tools suggest that our
+model that the has converged well, and the inference based on the Markov
+chain Monte Carlo simulation is reliable.
 
 ```{r echo=FALSE, include = FALSE, warning = FALSE, message = FALSE, appendix = TRUE}
 # Trace plots
@@ -584,19 +852,20 @@ knitr::include_graphics("images/trace_threshold.pdf")
 knitr::include_graphics("images/gelman_threshold.pdf")
 ```
 
-
 ```{r acplot-threshold, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Autocorrelation plots of α and β for the threshold model with the lowest WAIC.", fig.show = "hold", out.width = "50%", fig.align = "default"}
 knitr::include_graphics("images/ac1_threshold.pdf")
 knitr::include_graphics("images/ac2_threshold.pdf")
 ```
-
 
 ```{r density-threshold, echo=FALSE, warning = FALSE, message = FALSE, appendix = TRUE, fig.cap = "Density plots of α and β for the threshold model with the lowest WAIC.", fig.width=6, fig.height=3}
 par(mfrow = c(1,2))
 densplot(as.mcmc(chosen_model$samples$chain1,chosen_model$samples$chain2))
 ```
 
-The density plots are presented in Figure \@ref(fig:density-threshold). The plots for both $\alpha$ and $\beta$ display smooth distributions. Table \@ref(tab:b2-threshold) summarizes the posterior measures of $\alpha$ and $\beta$.
+The density plots are presented in Figure \@ref(fig:density-threshold).
+The plots for both $\alpha$ and $\beta$ display smooth distributions.
+Table \@ref(tab:b2-threshold) summarizes the posterior measures of
+$\alpha$ and $\beta$.
 
 ```{r b2-threshold, cache = TRUE, echo = FALSE, message = FALSE, warning = FALSE, appendix = TRUE, include = TRUE}
 samples_n <- rbind(chosen_model$samples$chain1,chosen_model$samples$chain2)
@@ -611,8 +880,10 @@ as.data.frame(chosen_model$summary$all.chains[, -c(4, 5)]) %>%
   kableExtra::kable_styling()
 ```
 
-
-Figure \@ref(fig:threshold-posterior-fit) shows that the fit of the posterior dose-response relationship  with the observed probabilities improved combared to Figure \@ref(fig:b3), especially in the range with lower doses.
+Figure \@ref(fig:threshold-posterior-fit) shows that the fit of the
+posterior dose-response relationship with the observed probabilities
+improved combared to Figure \@ref(fig:b3), especially in the range with
+lower doses.
 
 ```{r threshold-posterior-fit, echo=FALSE, message=FALSE, warning=FALSE, appendix=TRUE, fig.cap="Posterior dose-response relationship and observed probabilities for the model with the lowest WAIC.", fig.height=3, fig.width=4}
 #plot posterior vs observed probabilities
@@ -645,7 +916,6 @@ ggplot(df_plotting, aes(x = dose)) +
 
 \clearpage
 
-
 \appendix
 
 # Appendix
@@ -663,9 +933,8 @@ labs = setdiff(labs, c("get-labels"))
 ```{r all-code, ref.label=labs, eval=FALSE}
 ```
 
+```{=tex}
 \normalsize
 \clearpage
-
-
-
+```
 # Bibliography
