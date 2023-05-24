@@ -47,5 +47,7 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
-
-output/*
+*.log
+Assignment_files/*
+images/*.pdf
+*.Rdata
