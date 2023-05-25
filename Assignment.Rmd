@@ -190,7 +190,7 @@ We draw a random sample of size `r n` from both posterior Beta
 distributions and calculate the relative risk based on those. Figure
 \@ref(fig:posterior-rr) shows a histogram of the random sample of the
 relative risk. If the relative risk is significantly different from one,
-we can conclude that there is indeed an association between smoking ans
+we can conclude that there is indeed an association between smoking and
 stroke. Let's investigate this.
 
 The mean relative risk in our sample is `r round(mean(random_rr),3)` and
@@ -327,7 +327,6 @@ knitr::include_graphics("images/A_ACF.pdf")
 ::: {.greybox data-latex=""}
 (6) Compare the summary measures obtained from the MCMC chain with the results obtained from questions (1)-(3).
 :::
-The summary measures obtained analytically and from MCMC are similar. The analytical approach generated a mean of 1.90, with a 95% highest density interval (HDI) that ranged from 1.48 to 2.34. Similarly, the MCMC approach yield a mean of 1.89, with a 95% HDI ranging from 1.46 to 2.34. Here, the difference between the two means is only 0.01 points. The posteriors are shown for comparison in Figure \@ref(fig:A-posterior).
 
 ```{r echo=FALSE, warning = FALSE, message = FALSE, appendix=TRUE, include=FALSE}
 #----------------------------------Question A6---------------------------------#
@@ -338,6 +337,7 @@ posterior.sum <- summary(posterior.sim)
 theta1.samples <- MCMCchain[,"theta1"]
 theta2.samples <- MCMCchain[,"theta2"]
 relative.risk <- theta1.samples/theta2.samples
+hdi_rr <- unname(hdi(relative.risk))
 plotPost(relative.risk, mainColor = "white",
          border = "black", xlab = "Relative Risk")
 
@@ -355,6 +355,8 @@ plotPost(relative.risk, xlab = "MCMC Computation",
 dev.off()
 ```
 
+The summary measures obtained analytically and from MCMC are similar. The analytical approach generated a mean of 1.90, with a 95% highest density interval (HDI) that ranged from 1.48 to 2.34. Similarly, the MCMC approach yields a mean of `r round(mean(relative.risk), 3)`, with a 95% HDI ranging from `r round(hdi_rr[1], 3)` to `r round(hdi_rr[1], 3)`. Here, the difference between the two means is only `r round(abs(mean(relative.risk) - mean(random_rr)), 3)` points. The posteriors are shown for comparison in Figure \@ref(fig:A-posterior).
+
 ```{r A-posterior, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Analytical vs MCMC posterior distribution.", fig.show = "hold", out.width = "50%", fig.align = 'center'}
 knitr::include_graphics("images/A-posteriorcomparison.pdf")
 ```
@@ -365,19 +367,23 @@ knitr::include_graphics("images/A-posteriorcomparison.pdf")
     $$\theta_{AR} = \frac{\theta_{RR}-1}{\theta_{RR}}$$ Extend your
     Bayesian MCMC code to derive the answer.
 :::
-The mean attributable risk is 0.466 with 95% HDI equal to [0.337, 0.583]. This means that smoking is a significant contributing factor to stroke cases, with a range of 33.7% to 58.3% and a mean of 46.6% (Figure \@ref(fig:A-Attr-Risk)).  
-
 ```{r Attr-Risk, include = FALSE, echo = FALSE, appendix = TRUE, cache = TRUE}
 #----------------------------------Question A7---------------------------------#
 attrib.risk <- (relative.risk - 1) / relative.risk
+hdi_attrib_risk <- unname(hdi(attrib.risk))
 pdf("images/A-plotpost.pdf")
 plotPost(attrib.risk, mainColor = "white",
          border = "black", xlab = "Attributable Risk")
 dev.off()
 ```
+
+The mean attributable risk is `r round(mean(attrib.risk),3)` with 95% HDI equal to `r sprintf("[%.3f, %.3f]", hdi_attrib_risk[1], hdi_attrib_risk[2])`. This means that smoking is a significant contributing factor to stroke cases, with a range of `r 100*round(hdi_attrib_risk[1],3)`% to `r 100*round(hdi_attrib_risk[2],3)`% and a mean of `r 100*round(mean(attrib.risk),3)`% (Figure \@ref(fig:A-Attr-Risk)).  
+
+
 ```{r A-Attr-Risk, echo=FALSE, warning = FALSE, message = FALSE, appendix = FALSE, fig.cap = "Attributable risk.", out.width = "50%", fig.align = 'center'}
 knitr::include_graphics("images/A-plotpost.pdf")
 ```
+
 \clearpage
 
 # Task B: Dose-response model
@@ -481,7 +487,8 @@ traceplot(as.mcmc(mcmc.output1$samples$chain1), xlab = "chain1$iteration")
 traceplot(as.mcmc(mcmc.output1$samples$chain2), xlab = "chain2$iteration")
 dev.off()
 # Gelman-Rubin diagnostic plots
-combinedchains1 = mcmc.list(as.mcmc(mcmc.output1$samples$chain1), as.mcmc(mcmc.output1$samples$chain2))
+combinedchains1 = mcmc.list(as.mcmc(mcmc.output1$samples$chain1),
+                            as.mcmc(mcmc.output1$samples$chain2))
 gelman.diag(combinedchains1)
 pdf("images/gelman_normal.pdf") 
 gelman.plot(combinedchains1,xlim = c(0,5000))
@@ -572,7 +579,8 @@ pdf("images/ac2_t.pdf")
 acf(as.mcmc(mcmc.output2$samples$chain2), xlab = 'Chain2 Lag')
 dev.off()
 # Gelman-Rubin diagnostic plots
-combinedchains2 = mcmc.list(as.mcmc(mcmc.output2$samples$chain1), as.mcmc(mcmc.output2$samples$chain2))
+combinedchains2 = mcmc.list(as.mcmc(mcmc.output2$samples$chain1),
+                            as.mcmc(mcmc.output2$samples$chain2))
 gelman.diag(combinedchains2)
 pdf("images/gelman_t.pdf")
 gelman.plot(combinedchains2,xlim = c(0,5000))
@@ -646,7 +654,7 @@ as.data.frame(rbind(mcmc.output1$summary$all.chains[, -c(4, 5)],
 
 Based on the Bayesian posterior measures of α and β (Table
 \@ref(tab:b2)), it can be concluded that the probability of
-malformations is ?????0.143????? in the absence of any administered
+malformations is $expit($ `r round(mcmc.output1$summary$all.chains[1, 1], 3)` $) = $ `r round(expit(mcmc.output1$summary$all.chains[1, 1]), 3)` in the absence of any administered
 dose. As the dose increases, the probability of malformations also
 increases, indicating a positive dose-response relationship.
 Additionally, the 95% highest posterior density (HPD) interval, which
@@ -779,16 +787,15 @@ regression for $logit(\pi)$:
     intercept is $\alpha -\beta\tau$ and the slope is $\beta$
 
 We will use the same vague priors from a Normal distribution:
-$$α \sim N(0,10000)$$ $$β \sim N(0,10000)$$ All other tuning parameter
+$$α \sim N(0,10000)$$ and $$β \sim N(0,10000)$$. All other tuning parameter
 such as initial values and burn-in are chosen the same as in the
 previous model. We will test several models with
 $\tau \in \{0,62.5,125,250,500\}$. We will select the model that
-minimises the WAIC.
+minimises the WAIC. Alternatively, we could have treated $\tau$ as a random
+variable and calculated it accordingly.
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, eval= !file.exists("output/results_threshold_model.Rdata"), appendix=TRUE}
-#---------------------------Question B-----------------------------------------#
-#possibly interesting reference for piecewise linear regression in R with nimble
-#https://gkonstantinoudis.github.io/nimble/PiecewiseLinear.html 
+#---------------------------Question B5----------------------------------------#
 init1 <- list(alpha = 0, beta = 0)
 init2 <- list(alpha = -0.5, beta = 0.1)
 initial.values <- list(init1, init2)
