@@ -52,7 +52,7 @@ stroke.
 
 In general, if $Y|\theta \sim Bin(n,\pi)$ is the data model and
 $\theta \sim Beta(\alpha, \beta)$ is the prior model, then the posterior
-model will be $$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$.
+model will be $$\theta|y \sim Beta(\alpha + y, \beta + n-y)$$
 
 In the Beta distribution, there are several possibilities for
 uninformative priors [@tuyl2008comparison]. $\alpha=1, \beta=1$
@@ -82,7 +82,7 @@ $$Mode(\theta_{-}|y_{-}) = \frac{\alpha+y-1}{\alpha+\beta+n-2} = \frac{1+117-1}{
 the posterior median is $$Median(\theta_{-}|y_{-}) = 0.02651149$$
 
 ```{r eval=FALSE, include=FALSE, appendix=TRUE}
-#--------------------------------Question A1&2---------------------------------#
+#------------------------------Question A1 & 2---------------------------------#
 alpha.ns <- 118
 beta.ns <- 4321
 # posterior median
@@ -131,7 +131,6 @@ and the posterior variance is
 $$Var(\theta_{+}|y_{+}) = \frac{(\alpha+y)(\beta+n-y)}{(\alpha+\beta+n)^2(\alpha+\beta+n+1)} = \frac{(1+171)(1+3435-171)}{(1+1+3435)^2(1+1+3435+1)} = 1.38 *10^{-5}$$
 The median is 0.05 and the equal tail credible interval for nonsmokers is equal to [0.0430, 0.05758]
 ```{r echo=FALSE, include = FALSE, message=FALSE, warning=FALSE, appendix=TRUE}
-
 #equal tail credible interval nonsmokers
 alpha_smoker <- 172
 beta_smoker <- 3265
@@ -158,7 +157,7 @@ hpdbeta(alpha_smoker, beta_smoker)
     association between smoking and stroke?
 :::
 
-```{r posterior-rr, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "Posterior distribution of the relative risk.", fig.width= 6, fig.height=4, fig.align = "default", appendix = TRUE}
+```{r posterior-rr, echo=FALSE, warning = FALSE, message = FALSE, fig.cap = "Posterior distribution of the relative risk. Mean in red and median in blue", fig.width= 6, fig.height=4, fig.align = "default", appendix = TRUE}
 #-------------------------A3: posterior relative risk--------------------------#
 #set the parameters
 set.seed(2023)
@@ -177,12 +176,16 @@ d <- data.frame(smoker = random_smoker,
                 relative_risk = random_rr)
 #2.5 quantile lowest, median and 97.5%
 quantiles <- round(quantile(random_rr, probs = c(0.025, 0.5, 0.975)),3)
-
+# highest 95%(posterior) density interval
+hdi_rr <- unname(hdi(random_rr))
 
 ggplot(d) +
   geom_histogram(aes(x = relative_risk),
                  color = "black", fill = "transparent") +
+  geom_vline(aes(xintercept = mean(random_rr), color = "red")) +
+  geom_vline(aes(xintercept = unname(quantiles[2]), color = "blue")) +
   theme_bw() +
+  theme(legend.position = "none") +
   xlab("Relative risk") 
 ```
 
@@ -199,9 +202,10 @@ the variance is `r round(var(random_rr),3)`. The median relative risk is
 `r round(min(random_rr),3)`, meaning that the probability that the
 relative risk $<=1$ is equal to zero in our sample! Indeed, 95% of our
 sample lies between `r unname(quantiles[1])` and
-`r unname(quantiles[3])`. We can thus confidently say that smokers have
-a statistically significantly higher risk of getting a stroke than non
-smokers.
+`r unname(quantiles[3])` and the Highest (Posterior) Density Interval is 
+`r sprintf("[%.3f, %.3f]", hdi_rr[1], hdi_rr[2])`. We can thus confidently say 
+that smokers have a statistically significantly higher risk of getting a stroke 
+than non smokers.
 
 ::: {.greybox data-latex=""}
 (4) Write jags, OpenBugs or Nimble code, to obtain an MCMC samples for
