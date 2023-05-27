@@ -479,7 +479,7 @@ And the second vague prior is: $$α \sim t(0,0.0001,5)$$
 $$β \sim t(0,0.0001,5)$$ Our parameter settings include running 2 MCMC
 chains with different starting values for $\alpha$ and $\beta$. The
 first chain starts with ($\alpha=0$, $\beta=0$), while the second chain
-starts with ($\alpha=-0.5$,$\beta=0.1$). We run each chain for a total
+starts with ($\alpha=-0.5$, $\beta=0.1$). We run each chain for a total
 of 10000 iterations, with the first 5000 iterations used as a burn-in
 period. We will use Nimble for this task.
 
@@ -658,7 +658,7 @@ as.data.frame(rbind(mcmc.output1$summary$all.chains[, -c(4, 5)],
 
 Based on the Bayesian posterior measures of α and β (Table
 \@ref(tab:b2)), it can be concluded that the probability of
-malformations is $expit($ `r round(mcmc.output1$summary$all.chains[1, 1], 3)` $) = $ `r round(expit(mcmc.output1$summary$all.chains[1, 1]), 3)` in the absence of any administered
+malformations is $expit($ `r round(mcmc.output1$summary$all.chains[1, 1], 3)` $) =$  `r round(expit(mcmc.output1$summary$all.chains[1, 1]), 3)` in the absence of any administered
 dose. As the dose increases, the probability of malformations also
 increases, indicating a positive dose-response relationship.
 Additionally, the 95% highest posterior density (HPD) interval, which
