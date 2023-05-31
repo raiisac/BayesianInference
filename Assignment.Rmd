@@ -74,7 +74,9 @@ $$\theta_{+}|y_{+} \sim Beta(172, 3265)$$
 (2) Give some summary measures of the above posterior distributions.
 :::
 
-Non-smokers: posterior summary measures For the non-smokers, the
+*Non-smokers: posterior summary measures *
+
+For the non-smokers, the
 posterior expected value is
 $$E(\theta_{-}|y_{-}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+117}{1+1+4437} = 0.02658256$$
 the posterior mode is\
@@ -121,6 +123,8 @@ return(c(hpdmin,hpdmax))
 hpdbeta(alpha.ns, beta.ns)
 ```
 
+*Smokers: posterior summary measures *
+
 For the smokers, the posterior expected value is
 $$E(\theta_{+}|y_{+}) = \frac{\alpha+y}{\alpha+\beta+n} = \frac{1+171}{1+1+3435} = 0.05004364$$
 the posterior mode is\
@@ -166,7 +170,7 @@ alpha_ns <- 118
 beta_ns <- 4321
 alpha_smoker <- 172
 beta_smoker <- 3265
-#draw random values from both posteriors ans calculate relative risk
+#draw random values from both posteriors and calculate relative risk
 random_smoker <- rbeta(n, alpha_smoker, beta_smoker)
 random_ns <- rbeta(n, alpha_ns, beta_ns)
 random_rr <- random_smoker / random_ns
@@ -174,14 +178,15 @@ random_rr <- random_smoker / random_ns
 d <- data.frame(smoker = random_smoker,
                 non_smoker = random_ns,
                 relative_risk = random_rr)
-#2.5 quantile lowest, median and 97.5%
+# 2.5 quantile lowest, median and 97.5%
 quantiles <- round(quantile(random_rr, probs = c(0.025, 0.5, 0.975)),3)
 # highest 95%(posterior) density interval
 hdi_rr <- unname(hdi(random_rr))
 
 ggplot(d) +
   geom_histogram(aes(x = relative_risk),
-                 color = "black", fill = "transparent") +
+                 color = "black", fill = "transparent",
+                 binwidth = 0.035) +
   geom_vline(aes(xintercept = mean(random_rr), color = "red")) +
   geom_vline(aes(xintercept = unname(quantiles[2]), color = "blue")) +
   theme_bw() +
@@ -346,7 +351,7 @@ plotPost(relative.risk, mainColor = "white",
          border = "black", xlab = "Relative Risk")
 
 # quantiles comparison
-quantile(relative.risk ,probs = c(0.025, 0.5, 0.975)) #MCMC
+quantile(relative.risk, probs = c(0.025, 0.5, 0.975)) #MCMC
 quantile(random_rr, probs = c(0.025, 0.5, 0.975)) #analytical
 
 # analytical vs MCMC posterior distribution comparison
@@ -471,7 +476,7 @@ data.frame(Dose = dose,
 :::
 
 To denote the uncertainty of parameters $\alpha$ and $\beta$, we specify
-two vague priors as a massive variance (extremely small precision) for
+two vague priors with a large variance (extremely small precision) for
 these two parameters. The first vague prior is: $$α \sim N(0,10000)$$
 $$β \sim N(0,10000)$$
 
@@ -525,7 +530,7 @@ Gelman-Rubin diagnostic test, and autocorrelation plots. We observed
 from the trace plots of $\alpha$ and $\beta$ (refer to Figure
 \@ref(fig:trace-gelman-rubin-normal)) that the estimates from each chain
 quickly stabilized around a steady state. Additionally, both chains were
-found to converge around the same conclusion. Furthermore, we conducted
+found to converge around the same value. Furthermore, we conducted
 the Gelman-Rubin diagnostic test, which showed that the estimated
 potential scale reduction factors of $\alpha$ and $\beta$ were both 1.
 These results suggest that our model has converged well. Moreover, the
@@ -762,7 +767,7 @@ data.frame(Prior = c("Normal distribution", "t-distribution"),
                     round(mean(df_output2_bmd$bmd), 3)),
            hpd = c(hpd_n[5, "interval"], hpd_t[5, "interval"])) %>%
   kable(booktabs = TRUE,
-        col.names = c("BMD (Mean)", "HPD interval", "Prior"),
+        col.names = c("Prior", "BMD (Mean)", "HPD interval"),
         caption = "Posterior measures of BMD.") %>%
   kableExtra::kable_styling()
 ```
@@ -791,7 +796,7 @@ regression for $logit(\pi)$:
     intercept is $\alpha -\beta\tau$ and the slope is $\beta$
 
 We will use the same vague priors from a Normal distribution:
-$$α \sim N(0,10000)$$ and $$β \sim N(0,10000)$$. All other tuning parameter
+$α \sim N(0,10000)$ and $β \sim N(0,10000)$. All other tuning parameter
 such as initial values and burn-in are chosen the same as in the
 previous model. We will test several models with
 $\tau \in \{0,62.5,125,250,500\}$. We will select the model that
@@ -884,7 +889,7 @@ For the model with the lowest WAIC, we observe from the trace plots of
 $\alpha$ and $\beta$ (refer to Figure
 \@ref(fig:trace-gelman-rubin-threshold)) that the estimates from each
 chain quickly stabilized around a steady state. Additionally, both
-chains were found to converge around the same conclusion. The
+chains were found to converge around the same value. The
 Gelman-Rubin diagnostic test showed that the estimated potential scale
 reduction factors of $\alpha$ and $\beta$ were both 1. These results
 suggest that our model has converged well. Moreover, the Gelman-Rubin
